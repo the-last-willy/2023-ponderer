@@ -6,3 +6,10 @@ imgui/1.88
 [generators]
 CMakeDeps
 CMakeToolchain
+
+[imports]
+./res/bindings, imgui_impl_glfw.cpp -> .
+./res/bindings, imgui_impl_glfw.h -> .
+./res/bindings, imgui_impl_opengl3.cpp -> .
+./res/bindings, imgui_impl_opengl3.h -> .
+./res/bindings, imgui_impl_opengl3_loader.h -> .
