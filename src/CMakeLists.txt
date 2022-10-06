@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
+find_package(glm REQUIRED COMPONENTS glm)
 find_package(imgui REQUIRED COMPONENTS imgui)
 find_package(glfw3 REQUIRED)
 
@@ -17,4 +18,5 @@ target_include_directories(ponderer_common
 target_link_libraries(ponderer_common
 		PUBLIC
 		glfw
+		glm::glm
 		imgui::imgui)
