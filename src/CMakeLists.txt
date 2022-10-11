@@ -8,17 +8,25 @@ find_package(glfw3 REQUIRED)
 add_library(ponderer_common)
 
 target_sources(ponderer_common
-		PRIVATE
-		${CMAKE_BINARY_DIR}/imgui_impl_glfw.cpp
-		${CMAKE_BINARY_DIR}/imgui_impl_opengl3.cpp)
+	PRIVATE
+	${CMAKE_BINARY_DIR}/imgui_impl_glfw.cpp
+	${CMAKE_BINARY_DIR}/imgui_impl_opengl3.cpp)
 
 target_include_directories(ponderer_common
-		PUBLIC
-		${CMAKE_BINARY_DIR})
+	PUBLIC
+	.
+	${CMAKE_BINARY_DIR})
 
 target_link_libraries(ponderer_common
+	PUBLIC
+	glad::glad
+	glfw
+	glm::glm
+	imgui::imgui)
+
+if(MSVC)
+	target_compile_options(ponderer_common
 		PUBLIC
-		glad::glad
-		glfw
-		glm::glm
-		imgui::imgui)
+		/std:c++20)
+endif()
+
