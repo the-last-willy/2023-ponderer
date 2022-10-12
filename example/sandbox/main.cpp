@@ -76,12 +76,13 @@ struct Application {
 
     Ssbo<Camera> gpu_camera;
 
+    glm::vec2 last_mouse_pos = glm::vec2(0.f);
+    glm::vec2 mouse_delta = glm::vec2(0.f);
+
     Application();
 };
 
 Application::Application() {
-    // camera.position.z = -10.f;
-
     auto pdesc = ProgramDescription();
     pdesc.fragment_shader_path = "D:/dev/project/ponderer/src/ponderer/shading/basic.frag";
     pdesc.vertex_shader_path = "D:/dev/project/ponderer/src/ponderer/shading/basic.vert";
@@ -132,22 +133,41 @@ Application::Application() {
 }
 
 void update(Application& a) {
+    {
+        auto x = 0.;
+        auto y = 0.;
+        glfwGetCursorPos(a.window, &x, &y);
+        auto current_mouse_pos = glm::vec2(float(x), float(y));
+        a.mouse_delta = current_mouse_pos - a.last_mouse_pos;
+        a.last_mouse_pos = current_mouse_pos;
+    }
 
+    if(glfwGetMouseButton(a.window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+    {
+        a.camera.yaw += a.mouse_delta.x / 2000.f;
+        a.camera.pitch += a.mouse_delta.y / 2000.f;
+    }
+
+    auto camera_rotation = rotation(a.camera);
     if(glfwGetKey(a.window, GLFW_KEY_A) == GLFW_PRESS)
     {
-        a.camera.yaw += 0.01f;
+        auto dir = glm::vec4(modeling::left, 0.f) * camera_rotation;
+        a.camera.position -= glm::vec3(dir.x, dir.y, dir.z) / 10.f;
     }
     if(glfwGetKey(a.window, GLFW_KEY_D) == GLFW_PRESS)
     {
-        a.camera.yaw -= 0.01f;
+        auto dir = glm::vec4(modeling::right, 0.f) * camera_rotation;
+        a.camera.position -= glm::vec3(dir.x, dir.y, dir.z) / 10.f;
     }
     if(glfwGetKey(a.window, GLFW_KEY_S) == GLFW_PRESS)
     {
-        a.camera.position.z += 0.1f;
+        auto dir = glm::vec4(modeling::forward, 0.f) * camera_rotation;
+        a.camera.position -= glm::vec3(dir.x, dir.y, dir.z) / 10.f;
     }
     if(glfwGetKey(a.window, GLFW_KEY_W) == GLFW_PRESS)
     {
-        a.camera.position.z -= 0.1f;
+        auto dir = glm::vec4(modeling::forward, 0.f) * camera_rotation;
+        a.camera.position += glm::vec3(dir.x, dir.y, dir.z) / 10.f;
     }
 
     a.gpu_camera.client->world_to_view = world_to_view(a.camera);
