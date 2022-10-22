@@ -19,6 +19,7 @@ target_include_directories(ponderer_common
 
 target_link_libraries(ponderer_common
 	PUBLIC
+	assimp::assimp
 	glad::glad
 	glfw
 	glm::glm

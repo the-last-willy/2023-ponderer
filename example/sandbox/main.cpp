@@ -2,15 +2,18 @@
 #include <ponderer/modeling.hpp>
 #include <ponderer/shading.hpp>
 
+#include <assimp/Importer.hpp>
+#include <assimp/postprocess.h>
+#include <assimp/scene.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-
 #include <glm/glm.hpp>
 #include <glm/gtc/type_aligned.hpp>
 
 #include <array>
 #include <cassert>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 
 using namespace ponderer;
@@ -20,6 +23,54 @@ auto gl_debug_message_callback(
        GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
 {
     throw std::runtime_error(message);
+}
+
+auto read_model(const std::string& filepath)-> std::optional<Geometry> {
+    auto importer = Assimp::Importer();
+    auto scene = importer.ReadFile(filepath, 0);
+    if(!scene) {
+        throw std::runtime_error("Failed to read scene.");
+    } else {
+        auto indices = std::vector<int>();
+        for(auto mi = 0; mi < scene->mNumMeshes; ++mi) {
+            auto& mesh = *scene->mMeshes[mi];
+            auto geom = Geometry();
+            geom.vertex_count = mesh.mNumVertices;
+            if(mesh.mPrimitiveTypes == aiPrimitiveType_POINT) {
+                geom.mode = GL_POINTS;
+            } else if(mesh.mPrimitiveTypes == aiPrimitiveType_LINE) {
+                geom.mode = GL_LINES;
+            } else if(mesh.mPrimitiveTypes == aiPrimitiveType_TRIANGLE) {
+                geom.mode = GL_TRIANGLES;
+            } else {
+                throw std::runtime_error("Unsupported polygon format.");
+            }
+            {
+                auto positions = std::vector<float>();
+                positions.resize(3 * mesh.mNumVertices);
+                for(auto vi = 0; vi < mesh.mNumVertices; ++vi) {
+                    auto& vertex = mesh.mVertices[vi];
+                    positions[3 * vi + 0] = vertex[0];
+                    positions[3 * vi + 1] = vertex[2];
+                    positions[3 * vi + 2] = -vertex[1];
+                }
+                glCreateBuffers(1, &geom.positions);
+                glNamedBufferStorage(geom.positions, sizeof(float) * size(positions), data(positions), GL_NONE);
+            }
+            if(mesh.mColors != nullptr) {
+                auto colors = std::vector<glm::packed_vec3>();
+                colors.resize(mesh.mNumVertices);
+                for(auto vi = 0; vi < mesh.mNumVertices; ++vi) {
+                    auto& color = mesh.mColors[0][vi];
+                    colors[vi] = glm::packed_vec3 (color[0], color[1], color[2]);
+                }
+                glCreateBuffers(1, &geom.colors);
+                glNamedBufferStorage(geom.colors, sizeof(glm::packed_vec3) * size(colors), data(colors), GL_NONE);
+            }
+            return geom;
+        }
+    }
+    return std::nullopt;
 }
 
 struct ProgramDescription {
@@ -68,7 +119,7 @@ struct Application {
 
     GLuint program = GL_NONE;
 
-    Geometry geometry;
+    std::optional<Geometry> geometry;
 
     GLuint vao = GL_NONE;
 
@@ -82,52 +133,47 @@ struct Application {
     Application();
 };
 
+auto vao(const Geometry& g) -> GLuint {
+    auto vao = GLuint(GL_NONE);
+    glCreateVertexArrays(1, &vao);
+
+    if(g.indices != GL_NONE) {
+        glVertexArrayElementBuffer(vao, g.indices);
+    }
+
+    if(g.colors != GL_NONE) {
+        glVertexArrayVertexBuffer(vao, 1, g.colors, 0, sizeof(glm::packed_vec3));
+        glVertexArrayAttribBinding(vao, 1, 1);
+        glVertexArrayAttribFormat(vao, 1, 3, GL_FLOAT, GL_FALSE,  0);
+        glEnableVertexArrayAttrib(vao, 1);
+    }
+
+    if(g.positions != GL_NONE) {
+        glVertexArrayVertexBuffer(vao, 0, g.positions, 0, sizeof(glm::packed_vec3));
+        glVertexArrayAttribBinding(vao, 0, 0);
+        glVertexArrayAttribFormat(vao, 0, 3, GL_FLOAT, GL_FALSE,  0);
+        glEnableVertexArrayAttrib(vao, 0);
+    }
+
+    return vao;
+}
+
 Application::Application() {
+    {
+        auto model = read_model("D:\\data\\3d_scan\\thomas_flynn_raptor_model.ply");
+        if(model) {
+            geometry = *model;
+        }
+    }
+
     auto pdesc = ProgramDescription();
     pdesc.fragment_shader_path = "D:/dev/project/ponderer/src/ponderer/shading/basic.frag";
     pdesc.vertex_shader_path = "D:/dev/project/ponderer/src/ponderer/shading/basic.vert";
     program = linked_program(pdesc);
 
-    glCreateBuffers(1, &geometry.colors);
-    {
-        auto vecs = std::array{
-          glm::packed_vec3(1.f, 0.f, 0.f),
-          glm::packed_vec3(0.f, 1.f, 0.f),
-          glm::packed_vec3(1.f, 0.f, 1.f),
-          glm::packed_vec3(0.f, 1.f, 1.f)
-        };
-        glNamedBufferStorage(geometry.colors, 4 * sizeof(glm::packed_vec3), data(vecs), GL_NONE);
+    if(geometry) {
+        vao = ::vao(*geometry);
     }
-
-    glCreateBuffers(1, &geometry.positions);
-    auto vertex_data = std::array{
-        glm::packed_vec3(-0.5f, -0.5f, -5.5f),
-        glm::packed_vec3(-0.5f, +0.5f, -5.5f),
-        glm::packed_vec3(+0.5f, -0.5f, -5.5f),
-        glm::packed_vec3(+0.5f, +0.5f, -5.5f)
-    };
-    glNamedBufferStorage(geometry.positions, 4 * sizeof(glm::packed_vec3), data(vertex_data), GL_NONE);
-
-    glCreateBuffers(1, &geometry.indices);
-    auto index_data = std::array{
-        GLuint(0), GLuint(2), GLuint(1),
-        GLuint(1), GLuint(2), GLuint(3),
-    };
-    glNamedBufferStorage(geometry.indices, 6 * sizeof(GLuint), data(index_data), GL_NONE);
-
-    glCreateVertexArrays(1, &vao);
-
-    glVertexArrayElementBuffer(vao, geometry.indices);
-
-    glVertexArrayVertexBuffer(vao, 1, geometry.colors, 0, sizeof(glm::packed_vec3));
-    glVertexArrayAttribBinding(vao, 1, 1);
-    glVertexArrayAttribFormat(vao, 1, 3, GL_FLOAT, GL_FALSE,  0);
-    glEnableVertexArrayAttrib(vao, 1);
-
-    glVertexArrayVertexBuffer(vao, 0, geometry.positions, 0, sizeof(glm::packed_vec3));
-    glVertexArrayAttribBinding(vao, 0, 0);
-    glVertexArrayAttribFormat(vao, 0, 3, GL_FLOAT, GL_FALSE,  0);
-    glEnableVertexArrayAttrib(vao, 0);
 
     gpu_camera.client->world_to_view = glm::scale(glm::vec3(.5f));
 }
@@ -144,8 +190,8 @@ void update(Application& a) {
 
     if(glfwGetMouseButton(a.window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
     {
-        a.camera.yaw += a.mouse_delta.x / 2000.f;
-        a.camera.pitch += a.mouse_delta.y / 2000.f;
+        a.camera.yaw -= a.mouse_delta.x / 2000.f;
+        a.camera.pitch -= a.mouse_delta.y / 2000.f;
     }
 
     auto camera_rotation = rotation(a.camera);
@@ -174,12 +220,22 @@ void update(Application& a) {
     a.gpu_camera.client->view_to_clip = view_to_clip(a.camera);
 
     glClearColor(37/255.f, 150/255.f, 190/255.f, 1.f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClearDepth(100.f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glEnable(GL_DEPTH_TEST);
 
     glUseProgram(a.program);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, a.gpu_camera.server);
     glBindVertexArray(a.vao);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    if(a.geometry) {
+        if(a.geometry->indices) {
+            glDrawElements(a.geometry->mode, a.geometry->vertex_count, GL_UNSIGNED_INT, 0);
+        } else {
+            glDrawArrays(a.geometry->mode, 0, a.geometry->vertex_count);
+        }
+    }
+
 }
 
 void error_callback(int error, const char* description)
