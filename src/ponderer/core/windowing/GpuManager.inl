@@ -44,7 +44,7 @@ inline void updateObjects(GpuManager& manager) {
 inline void updateObjectsBuffers(GpuManager& manager) {
 	if(ImGui::TreeNode("Buffers")) {
 		ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
-		if(ImGui::BeginTable("table", 1, flags)) {
+		if(ImGui::BeginTable("table", 2, flags)) {
 			ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed);
 			ImGui::TableHeadersRow();

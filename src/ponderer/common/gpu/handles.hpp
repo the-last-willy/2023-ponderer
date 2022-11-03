@@ -29,14 +29,22 @@ public:
 	, resource_(std::move(r))
 	{}
 
+	ObjectHandleWithContext(ObjectHandleWithContext&&) = default;
+
 	~ObjectHandleWithContext() {
 		if(context_ != nullptr) {
-			release(context(), resource());
+			release(context(), BufferId(resource()));
 		}
 	}
 
+	auto operator=(ObjectHandleWithContext&&) -> ObjectHandleWithContext& = default;
+
 	auto context() const -> Context& {
 		return *context_;
+	}
+
+	auto resource() const -> const BufferResource& {
+		return resource_;
 	}
 
 	auto resource() -> BufferResource& {
@@ -52,16 +60,24 @@ public:
 template<typename Traits>
 class ObjectHandle : private ObjectHandleWithContext<Traits> {
 public:
+	using Resource = typename Traits::Resource;
+
 	using ObjectHandleWithContext<Traits>::ObjectHandleWithContext;
 
-	using ObjectHandleWithContext<Traits>::id;
-	using ObjectHandleWithContext<Traits>::operator bool;
-	using ObjectHandleWithContext<Traits>::operator typename Traits::Id;
+	using ObjectHandleWithContext<Traits>::resource;
+
+	auto operator*() const -> const Resource& {
+		return resource();
+	}
+
+	operator bool() const {
+		return resource() != GL_NONE;
+	}
 };
 
 using BufferHandle = ObjectHandle<BufferHandleTraits>;
 
-inline auto byteSize(const BufferHandle& buffer) -> GLint {
+inline auto byteSize(const BufferResource& buffer) -> GLint {
 	auto byteSize_ = GLint(0);
 	glGetNamedBufferParameteriv(buffer, GL_BUFFER_SIZE, &byteSize_);
 	return byteSize_;
