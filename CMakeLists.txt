@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
-project(ponderer CXX)
+project(src/ponderer)
 
-find_package(assimp REQUIRED)
-find_package(imgui REQUIRED)
-find_package(glfw3 REQUIRED)
+add_subdirectory(src/ponderer)
 
-add_subdirectory(example)
-add_subdirectory(src)
+# Your local config here.
