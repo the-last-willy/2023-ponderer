@@ -9,6 +9,15 @@ inline void update(GpuManager& manager) {
 	if(manager.isOpened) {
 		if(ImGui::Begin("GPU Manager", &manager.isOpened)) {
 			if(manager.context != nullptr) {
+				{
+					auto majorVersion = 0;
+					glGetIntegerv(GL_MAJOR_VERSION, &majorVersion);
+					auto minorVersion = 0;
+					glGetIntegerv(GL_MINOR_VERSION, &minorVersion);
+					ImGui::Text("Renderer  : %s", glGetString(GL_RENDERER));
+					ImGui::Text("Vendor    : %s", glGetString(GL_VENDOR));
+					ImGui::Text("Version   : %i.%i", majorVersion, minorVersion);
+				}
 				updateObjects(manager);
 			} else {
 				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.f, 0.f, 0.f, 1.f));
