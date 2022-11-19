@@ -4,8 +4,6 @@
 
 namespace ponderer::gpu {
 
-struct BufferIdTraits {};
-
 template<typename Traits>
 class ObjectId {
 public:
@@ -27,6 +25,18 @@ public:
 	}
 };
 
+struct BufferIdTraits {};
+struct FramebufferIdTraits {};
+struct ProgramIdTraits {};
+struct ShaderIdTraits {};
+struct TextureIdTraits {};
+struct VertexArrayIdTraits {};
+
 using BufferId = ObjectId<BufferIdTraits>;
+using FramebufferId = ObjectId<FramebufferIdTraits>;
+using ProgramId = ObjectId<ProgramIdTraits>;
+using ShaderId = ObjectId<ShaderIdTraits>;
+using TextureId = ObjectId<TextureIdTraits>;
+using VertexArrayId = ObjectId<VertexArrayIdTraits>;
 
 }

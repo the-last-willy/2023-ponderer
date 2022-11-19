@@ -10,6 +10,8 @@
 
 namespace ponderer::windowing {
 
+class Context;
+
 enum class OpenFileStatus {
 	undefined,
 
@@ -34,6 +36,8 @@ public:
 	= [](NullTerminated<const char*>) { return OpenFileResult(); };
 };
 
-void update(MainInterface&);
+void update(MainInterface&, Context&);
 
 }
+
+#include "ponderer/core/windowing/context.hpp"

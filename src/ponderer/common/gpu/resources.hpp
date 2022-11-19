@@ -1,9 +1,12 @@
 #pragma once
 
-#include "ponderer/dep/glm/all.hpp"
+#include "ponderer/common/gpu/tags.hpp"
+
+#include <ponderer/dep/glm/all.hpp>
 
 #include <cstdlib>
 #include <span>
+#include <stdexcept>
 
 namespace ponderer::gpu {
 
@@ -95,66 +98,171 @@ public:
 
 // TODO : Buffer<T, U[]> ?
 
-class BufferResource {
-	GLuint server_ = GL_NONE;
+template<typename Tr>
+concept ObjectResourceTraits
+= requires {
+	typename Tr::Id;
+
+	// TODO : Handle case when `acquire` requires parameters eg. `shader` and `texture`.
+	{ Tr::acquire() } -> std::same_as<typename Tr::Id>;
+
+	Tr::release(std::declval<typename Tr::Id>());
+};
+
+template<ObjectResourceTraits Tr>
+class ObjectResource {
+public:
+	using Traits = Tr;
+	using Id = typename Traits::Id;
+
+private:
+	Id id_ = Id(GL_NONE);
 
 public:
-	BufferResource() = default;
+	ObjectResource() = default;
 
-	template<typename T>
-	BufferResource(const T& data, GLbitfield flags = GL_NONE)
-	: BufferResource(sizeof(data), data, flags)
+	template<typename... Args>
+	explicit ObjectResource(Args&&... args)
+	: id_(Traits::acquire(std::forward<Args>(args)...))
 	{}
 
-	template<typename T>
-	BufferResource(GLsizeiptr size, GLbitfield flags = GL_NONE) {
-		glCreateBuffers(1, &server_);
-		glNamedBufferStorage(server(), size, nullptr, flags);
+	explicit ObjectResource(decltype(toAcquire))
+	: id_(Traits::acquire())
+	{}
+
+	ObjectResource(const ObjectResource&) = delete;
+
+	ObjectResource(ObjectResource&& other)
+	: id_(other.drop())
+	{}
+
+	~ObjectResource() {
+		Traits::release(id());
 	}
 
-	template<typename T>
-	BufferResource(GLsizeiptr size, const T& data, GLbitfield flags = GL_NONE) {
-		glCreateBuffers(1, &server_);
-		glNamedBufferStorage(server(), size, &data, flags);
-	}
+	auto operator=(const ObjectResource&) -> ObjectResource& = delete;
 
-	BufferResource(const BufferResource& o) = delete;
-
-	BufferResource(BufferResource&& o)
-	: server_(o.server_)
-	{
-		o.server_ = GL_NONE;
-	}
-
-	auto operator=(const BufferResource&) -> BufferResource& = delete;
-
-	auto operator=(BufferResource&& o) -> BufferResource& {
-		server_ = o.server_;
-		o.server_ = GL_NONE;
+	auto operator=(ObjectResource&& other) -> ObjectResource& {
+		reset(other.drop());
 		return *this;
 	}
 
-	~BufferResource() {
-		glDeleteBuffers(1, &server_);
+	auto id() const -> Id {
+		return id_;
 	}
 
-	auto server() const -> GLuint {
-		return server_;
+	auto drop() -> Id {
+		auto dropped = id();
+		id_ = Id(GL_NONE);
+		return dropped;
 	}
 
-	operator GLuint() const {
-		return server();
+	void release() {
+		Traits::release(drop());
+	}
+
+	void reset(Id id) {
+		Traits::release(this->id());
+		id_ = id;
 	}
 };
 
-template<typename T>
-auto buffer2(std::span<T> data, GLbitfield flags = GL_NONE) -> BufferResource {
-	return BufferResource(data.size_bytes(), std::data(data), flags);
-}
+struct BufferResourceTraits {
+	using Id = BufferId;
 
-template<typename... Args>
-auto buffer2(Args&&... args) -> BufferResource {
-	return BufferResource(std::forward<Args>(args)...);
-}
+	static auto acquire() -> Id {
+		auto id = GLuint(GL_NONE);
+		glCreateBuffers(1, &id);
+		return BufferId(id);
+	}
+
+	static void release(BufferId buffer) {
+		auto id = buffer.value();
+		glDeleteBuffers(1, &id);
+	}
+};
+
+struct FramebufferResourceTraits {
+	using Id = GLuint;
+
+	static auto acquire() -> Id {
+		auto id = GLuint(GL_NONE);
+		glCreateFramebuffers(1, &id);
+		return id;
+	}
+
+	static void release(Id id) {
+		glDeleteFramebuffers(1, &id);
+	}
+};
+
+struct ProgramResourceTraits {
+	using Id = GLuint;
+
+	static auto acquire() -> Id {
+		return glCreateProgram();
+	}
+
+	static void release(Id id) {
+		glDeleteProgram(id);
+	}
+};
+
+struct ShaderResourceTraits {
+	using Id = GLuint;
+
+	static auto acquire(GLenum type) -> Id {
+		return glCreateShader(type);
+	}
+
+	static auto acquire() -> Id {
+		throw std::logic_error(
+			"The type of the shader is required in order to acquire the resource.");
+	}
+
+	static void release(Id id) {
+		glDeleteShader(id);
+	}
+};
+
+struct TextureResourceTraits {
+	using Id = GLuint;
+
+	static auto acquire(GLenum type) -> Id {
+		auto id = GLuint(GL_NONE);
+		glCreateTextures(type, 1, &id);
+		return id;
+	}
+
+	static auto acquire() -> Id {
+		throw std::logic_error(
+			"The type of the texture is required in order to acquire the resource.");
+	}
+
+	static void release(Id id) {
+		glDeleteTextures(1, &id);
+	}
+};
+
+struct VertexArrayResourceTraits {
+	using Id = GLuint;
+
+	static auto acquire() -> Id {
+		auto id = GLuint(GL_NONE);
+		glCreateVertexArrays(1, &id);
+		return id;
+	}
+
+	static void release(Id id) {
+		glDeleteVertexArrays(1, &id);
+	}
+};
+
+using BufferResource = ObjectResource<BufferResourceTraits>;
+using FramebufferResource = ObjectResource<FramebufferResourceTraits>;
+using ProgramResource = ObjectResource<ProgramResourceTraits>;
+using ShaderResource = ObjectResource<ShaderResourceTraits>;
+using TextureResource = ObjectResource<TextureResourceTraits>;
+using VertexArrayResource = ObjectResource<VertexArrayResourceTraits>;
 
 }

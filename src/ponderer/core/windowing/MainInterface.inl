@@ -4,7 +4,7 @@
 
 namespace ponderer::windowing {
 
-void update(MainInterface& interface) {
+void update(MainInterface& interface, Context& context) {
     auto isOpenFileModal = false;
     if(ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File"))
@@ -14,10 +14,20 @@ void update(MainInterface& interface) {
             }
             ImGui::EndMenu();
         }
+		if (ImGui::BeginMenu("Resource"))
+		{
+			if(ImGui::MenuItem("File")) {
+
+			}
+			if(ImGui::MenuItem("GPU")) {
+				interface.gpuManager.isOpened = true;
+			}
+			ImGui::EndMenu();
+		}
 		if (ImGui::BeginMenu("Tool"))
 		{
-			if(ImGui::MenuItem("GPU Manager")) {
-				interface.gpuManager.isOpened = true;
+			if(ImGui::MenuItem("Profiler")) {
+
 			}
 			ImGui::EndMenu();
 		}
@@ -52,7 +62,7 @@ void update(MainInterface& interface) {
         ImGui::EndPopup();
     }
 
-	update(interface.gpuManager);
+	update(interface.gpuManager, context);
 }
 
 }

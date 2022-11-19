@@ -4,17 +4,23 @@
 
 namespace ponderer::windowing {
 
+class Context;
+
 class GpuManager {
 public:
-	const gpu::Context* context = nullptr;
+	gpu::Context* context = nullptr;
 
 	bool isOpened = false;
 };
 
-void update(GpuManager&);
+void update(GpuManager&, Context&);
 
-void updateObjects(GpuManager&);
+void updateObjects(GpuManager&, Context&);
 
 void updateObjectsBuffers(GpuManager&);
+void updateObjectsPrograms(GpuManager&);
+void updateObjectsTextures(GpuManager&, Context&);
 
 }
+
+#include "ponderer/core/windowing/context.hpp"

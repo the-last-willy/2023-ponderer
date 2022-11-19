@@ -3,28 +3,25 @@
 #include "ponderer/common/gpu/ids.hpp"
 #include "ponderer/common/gpu/resources.hpp"
 
-#include "ponderer/common/gpu/context/context.hpp"
-
 namespace ponderer::gpu {
 
-struct BufferHandleTraits {
-	using Id = BufferId;
-	using Resource = BufferResource;
-};
+class Context;
 
 template<typename Traits_>
 class ObjectHandleWithContext {
 public:
 	using Traits = Traits_;
 
+	using Resource = typename Traits::Resource;
+
 private:
 	Context* context_ = nullptr;
-	BufferResource resource_;
+	Resource resource_;
 
 public:
 	ObjectHandleWithContext() = default;
 
-	ObjectHandleWithContext(Context& c, BufferResource&& r)
+	ObjectHandleWithContext(Context& c, Resource&& r)
 	: context_(&c)
 	, resource_(std::move(r))
 	{}
@@ -33,7 +30,7 @@ public:
 
 	~ObjectHandleWithContext() {
 		if(context_ != nullptr) {
-			release(context(), BufferId(resource()));
+			releaseBuffer(context(), resource()->id());
 		}
 	}
 
@@ -43,12 +40,12 @@ public:
 		return *context_;
 	}
 
-	auto resource() const -> const BufferResource& {
-		return resource_;
+	auto resource() const -> const Resource* {
+		return &resource_;
 	}
 
-	auto resource() -> BufferResource& {
-		return resource_;
+	auto resource() -> Resource* {
+		return &resource_;
 	}
 };
 
@@ -75,11 +72,46 @@ public:
 	}
 };
 
-using BufferHandle = ObjectHandle<BufferHandleTraits>;
+struct BufferHandleTraits {
+	using Id = BufferId;
+	using Resource = BufferResource;
+};
 
-inline auto byteSize(const BufferResource& buffer) -> GLint {
+struct FramebufferHandleTraits {
+	using Id = FramebufferId;
+	using Resource = FramebufferResource;
+};
+
+struct ProgramHandleTraits {
+	using Id = ProgramId;
+	using Resource = ProgramResource;
+};
+
+struct ShaderHandleTraits {
+	using Id = ShaderId;
+	using Resource = ShaderResource;
+};
+
+struct TextureHandleTraits {
+	using Id = TextureId;
+	using Resource = TextureResource;
+};
+
+struct VertexArrayHandleTraits {
+	using Id = VertexArrayId;
+	using Resource = VertexArrayResource;
+};
+
+using BufferHandle = ObjectHandle<BufferHandleTraits>;
+using FramebufferHandle = ObjectHandle<FramebufferHandleTraits>;
+using ProgramHandle = ObjectHandle<ProgramHandleTraits>;
+using ShaderHandle = ObjectHandle<ShaderHandleTraits>;
+using TextureHandle = ObjectHandle<TextureHandleTraits>;
+using VertexArrayHandle = ObjectHandle<VertexArrayHandleTraits>;
+
+inline auto bufferRawSize(GLuint id) -> GLint {
 	auto byteSize_ = GLint(0);
-	glGetNamedBufferParameteriv(buffer, GL_BUFFER_SIZE, &byteSize_);
+	glGetNamedBufferParameteriv(id, GL_BUFFER_SIZE, &byteSize_);
 	return byteSize_;
 }
 

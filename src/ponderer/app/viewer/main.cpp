@@ -1,7 +1,7 @@
+#include <ponderer/common/gpu/all.hpp>
 #include "ponderer/common/file.hpp"
 #include "ponderer/dep/glfw/all.hpp"
 #include "ponderer/dep/imgui/all.hpp"
-#include "ponderer/common/gpu.hpp"
 #include "ponderer/common/modeling.hpp"
 #include "ponderer/core/shading.hpp"
 #include <ponderer/core/windowing/all.hpp>
@@ -59,7 +59,8 @@ auto read_model(gpu::Context& gpu, const std::string& filepath)-> std::optional<
                     positions[3 * vi + 2] = -vertex[1];
                 }
 
-				geom.positions = acquireBuffer(gpu, std::span(positions), GL_NONE);
+				geom.positions = acquireBuffer(gpu);
+				gpu::gl::NamedBufferStorage(geom.positions.resource()->id(), std::span(positions), GL_NONE);
             }
             if(mesh.mColors != nullptr) {
                 auto colors = std::vector<glm::packed_vec3>();
@@ -68,7 +69,8 @@ auto read_model(gpu::Context& gpu, const std::string& filepath)-> std::optional<
                     auto& color = mesh.mColors[0][vi];
                     colors[vi] = glm::packed_vec3 (color[0], color[1], color[2]);
                 }
-				geom.colors = acquireBuffer(gpu, std::span(colors), GL_NONE);
+				geom.colors = acquireBuffer(gpu);
+				gpu::gl::NamedBufferStorage(geom.colors.resource()->id(), std::span(colors), GL_NONE);
             }
             return geom;
         }
@@ -113,7 +115,8 @@ auto billboard_geometry(gpu::Context& gpu) -> Geometry {
             1, 2, 3,
         };
         g.vertex_count = size(data);
-		g.indices = acquireBuffer(gpu, std::span(data));
+		g.indices = acquireBuffer(gpu);
+		gpu::gl::NamedBufferStorage(g.indices.resource()->id(), std::span(data));
     }
     { // Positions.
         auto data = std::vector<glm::packed_vec3>{
@@ -122,7 +125,8 @@ auto billboard_geometry(gpu::Context& gpu) -> Geometry {
             glm::packed_vec3(+1.f, -1.f, 0.f),
             glm::packed_vec3(+1.f, +1.f, 0.f),
         };
-		g.positions = acquireBuffer(gpu, std::span(data));
+		g.positions = acquireBuffer(gpu);
+		gpu::gl::NamedBufferStorage(g.positions.resource()->id(), std::span(data));
     }
     return g;
 }
@@ -132,7 +136,7 @@ struct ProgramDescription {
     std::filesystem::path vertex_shader_path;
 };
 
-GLint linked_program(const ProgramDescription& desc) {
+auto linked_program(gpu::Context& gpu, const ProgramDescription& desc) -> gpu::ProgramHandle {
     GLuint fragment_shader = GL_NONE;
     if(std::filesystem::exists(desc.fragment_shader_path)) {
         fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
@@ -158,10 +162,10 @@ GLint linked_program(const ProgramDescription& desc) {
     auto has_fragment_shader = fragment_shader != GL_NONE;
     auto has_vertex_shader = vertex_shader != GL_NONE;
     if(has_fragment_shader && has_vertex_shader) {
-        auto program = glCreateProgram();
-        glAttachShader(program, fragment_shader);
-        glAttachShader(program, vertex_shader);
-        glLinkProgram(program);
+        auto program = acquire(gpu, gpu::programTag);
+        glAttachShader(program.resource()->id(), fragment_shader);
+        glAttachShader(program.resource()->id(), vertex_shader);
+        glLinkProgram(program.resource()->id());
         return program;
     } else {
         throw std::runtime_error("Missing either fragment or vertex shader.");
@@ -180,20 +184,21 @@ std::vector<shading::Billboard> billboard_grid() {
 
 struct Application {
 	gpu::Context gpuContext;
+	windowing::Context windowingContext;
     windowing::MainInterface mainInterface;
 
     int frame_count = 0;
 
     GLFWwindow* window = nullptr;
 
-    GLuint program = GL_NONE;
+    gpu::ProgramHandle program;
 
     std::optional<Geometry> geometry;
 
     GLuint vao = GL_NONE;
 
     Geometry billboard_geom;
-    GLuint billboard_program = GL_NONE;
+    gpu::ProgramHandle billboard_program;
     GLuint billboard_vao = GL_NONE;
 
     Ssbo<shading::Billboard> billboard_data;
@@ -209,6 +214,8 @@ struct Application {
 
     glm::vec2 last_mouse_pos = glm::vec2(0.f);
     glm::vec2 mouse_delta = glm::vec2(0.f);
+
+	gpu::TextureHandle groundTexture;
 
     Application();
 };
@@ -258,7 +265,7 @@ Application::Application() {
         auto pd = ProgramDescription();
         pd.fragment_shader_path = "D:\\dev\\project\\ponderer\\src\\ponderer/core\\shading\\billboard.frag";
         pd.vertex_shader_path = "D:\\dev\\project\\ponderer\\src\\ponderer/core\\shading\\billboard.vert";
-        billboard_program = linked_program(pd);
+        billboard_program = linked_program(gpuContext, pd);
 
         billboard_geom = billboard_geometry(gpuContext);
         billboard_vao = ::vao(billboard_geom);
@@ -271,6 +278,23 @@ Application::Application() {
 
 	{ // Interface.
 		mainInterface.gpuManager.context = &gpuContext;
+	}
+}
+
+void init(Application& app) {
+	{
+		int width, height, channel;
+		auto data = stbi_load(
+			"D:/data/unity/AssetStore/Assets/NatureManufacture Assets/Winter Ground Pack/Ground Textures/T_Snow_Ground_3_N.tga",
+			&width, &height, &channel, 4);
+		if(data) {
+			app.groundTexture = acquire(app.gpuContext, gpu::textureTag, GL_TEXTURE_2D);
+			glTextureStorage2D(app.groundTexture.resource()->id(), 1, GL_RGBA8, width, height);
+			glTextureSubImage2D(app.groundTexture.resource()->id(), 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
+		} else {
+			throw std::runtime_error("Failed to load image.");
+		}
+		stbi_image_free(data);
 	}
 }
 
@@ -359,7 +383,8 @@ void update(Application& a) {
 
     }
 
-	update(a.mainInterface);
+	update(a.mainInterface, a.windowingContext);
+	update(a.windowingContext);
 }
 
 void throwing_main() {
@@ -391,6 +416,8 @@ void throwing_main() {
     app.window = window;
 
     imGuiSetup(*window);
+
+	init(app);
 
     while (!glfwWindowShouldClose(window))
     {
