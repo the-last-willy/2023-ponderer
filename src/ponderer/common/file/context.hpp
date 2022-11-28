@@ -1,10 +1,13 @@
 #pragma once
 
+#include <ponderer/dep/std/container/map.hpp>
+
 #include <filesystem>
 #include <fstream>
 #include <map>
 #include <optional>
 #include <ranges>
+#include <stdexcept>
 #include <vector>
 
 namespace ponderer::file {
@@ -13,16 +16,19 @@ using FileId = std::size_t;
 using FilePath = std::filesystem::path;
 
 struct FileCache {
-	std::filesystem::file_time_type timeStamp;
+	std::filesystem::file_time_type loadTimeStamp;
+	std::filesystem::file_time_type fileTimeStamp;
+
 	std::string content;
 };
 
 struct FileDisk {
-
+	std::fstream stream;
 };
 
 struct File {
 	std::optional<FileCache> cache;
+	std::optional<FileDisk> disk;
 	FilePath path;
 };
 
@@ -36,6 +42,11 @@ class System {
 	auto acquireId() -> FileId {
 		return nextFreeId++;
 	}
+
+	auto dataPtrOf(FileId id) -> File* {
+		return std_::findPtr(idToFile_, id);
+	}
+
 public:
 
 	auto register_(const FilePath& path) -> FileId {
@@ -57,8 +68,22 @@ public:
 		}
 	}
 
-	auto load(FileId id) {
+	auto open(FileId id) {
+		if(auto data = dataPtrOf(id)) {
+			auto& disk = data->disk.emplace();
+			disk.stream = std::fstream(data->path, std::ios::in | std::ios::out);
+		} else {
+			throw std::runtime_error("File ID not registered.");
+		}
+	}
 
+	auto load(FileId id) {
+		if(auto data = dataPtrOf(id)) {
+			auto& cache = data->cache.emplace();
+
+		} else {
+			throw std::runtime_error("File ID not registered.");
+		}
 	}
 
 	auto allFileIds() -> std::ranges::sized_range auto {

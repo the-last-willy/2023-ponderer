@@ -86,8 +86,21 @@ inline void update(FileInspector& inspector) {
 					}
 				}
 			}
-			ImGui::Text("");
 			if(ImGui::Button("Save")) {
+
+			}
+			ImGui::SameLine();
+			if(doesExist) {
+				ImGui::BeginDisabled();
+			}
+			if(ImGui::Button("Open")) {
+
+			}
+			if(doesExist) {
+				ImGui::EndDisabled();
+			}
+			ImGui::SameLine();
+			if(ImGui::Button("Close")) {
 
 			}
 		}

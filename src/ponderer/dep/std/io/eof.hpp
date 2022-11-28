@@ -2,7 +2,7 @@
 
 #include <cstdio>
 
-namespace ponderer::std {
+namespace ponderer::std_ {
 
 struct {} constexpr eof;
 

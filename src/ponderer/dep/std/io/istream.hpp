@@ -6,7 +6,7 @@
 #include <sstream>
 #include <string>
 
-namespace ponderer::std {
+namespace ponderer::std_ {
 
 using ::std::basic_istream;
 using ::std::string;
