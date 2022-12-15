@@ -6,12 +6,12 @@
 
 namespace ponderer::ImGui_ {
 
-struct ScopedBegin {
+struct BeginWrapper {
 	bool b = false;
 
-	ScopedBegin(bool b) : b(b) {}
+	BeginWrapper(bool b) : b(b) {}
 
-	~ScopedBegin() {
+	~BeginWrapper() {
 		ImGui::End();
 	}
 
@@ -19,9 +19,9 @@ struct ScopedBegin {
 };
 
 template<typename... Args>
-[[nodiscard]] auto Begin(Args&&... args) -> ScopedBegin {
+[[nodiscard]] auto ScopedBegin(Args&&... args) -> BeginWrapper {
 	auto b = ImGui::Begin(std::forward<Args>(args)...);
-	return ScopedBegin(b);
+	return BeginWrapper(b);
 }
 
 struct ScopedBeginTable {
@@ -44,6 +44,26 @@ template<typename... Args>
 	return ScopedBeginTable(b);
 }
 
+struct ScopedBeginMainMenuBar {
+	bool b = false;
+
+	ScopedBeginMainMenuBar(bool b) : b(b) {}
+
+	~ScopedBeginMainMenuBar() {
+		if(b) {
+			ImGui::EndMainMenuBar();
+		}
+	}
+
+	operator bool() const { return b; }
+};
+
+template<typename... Args>
+[[nodiscard]] auto ScopedMainMenuBar(Args&&... args) -> ScopedBeginMainMenuBar {
+	auto b = ImGui::BeginMainMenuBar(std::forward<Args>(args)...);
+	return ScopedBeginMainMenuBar(b);
+}
+
 struct ScopedBeginMenu {
 	bool b = false;
 
@@ -59,7 +79,7 @@ struct ScopedBeginMenu {
 };
 
 template<typename... Args>
-[[nodiscard]] auto BeginMenu(Args&&... args) -> ScopedBeginMenu {
+[[nodiscard]] auto ScopedMenu(Args&&... args) -> ScopedBeginMenu {
 	auto b = ImGui::BeginMenu(std::forward<Args>(args)...);
 	return ScopedBeginMenu(b);
 }

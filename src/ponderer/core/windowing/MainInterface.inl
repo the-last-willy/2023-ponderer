@@ -7,14 +7,23 @@ namespace ponderer::windowing {
 void update(MainInterface& interface, Context& context) {
     auto isOpenFileModal = false;
     if(ImGui::BeginMainMenuBar()) {
-        if (ImGui::BeginMenu("File"))
+        if(auto fileMenu = ImGui::BeginMenu("File"))
         {
             if(ImGui::MenuItem("Open")) {
                 isOpenFileModal = true;
             }
-            ImGui::EndMenu();
         }
-		if (ImGui::BeginMenu("Resource"))
+		if(auto renderingMenu = ImGui_::ScopedMenu("Rendering"))
+		{
+			if(ImGui::MenuItem("Culling")) {
+
+			}
+			if(ImGui::MenuItem("Lighting")) {
+
+			}
+
+		}
+		if(auto resourceMenu = ImGui_::ScopedMenu("Resource"))
 		{
 			if(ImGui::MenuItem("File")) {
 
@@ -22,14 +31,21 @@ void update(MainInterface& interface, Context& context) {
 			if(ImGui::MenuItem("GPU")) {
 				interface.gpuManager.isOpened = true;
 			}
-			ImGui::EndMenu();
-		}
-		if (ImGui::BeginMenu("Tool"))
-		{
-			if(ImGui::MenuItem("Profiler")) {
+			if(ImGui::MenuItem("Scene")) {
 
 			}
-			ImGui::EndMenu();
+		}
+		if(auto toolMenu = ImGui_::ScopedMenu("Tool"))
+		{
+			if(ImGui::MenuItem("Dependency graph")) {
+
+			}
+			if(ImGui::MenuItem("Log")) {
+
+			}
+			if(ImGui::MenuItem("Statistics")) {
+
+			}
 		}
         ImGui::EndMainMenuBar();
     }
